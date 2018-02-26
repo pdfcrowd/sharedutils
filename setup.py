@@ -28,7 +28,7 @@ from setuptools import setup
 setup(name='sharedutils',
       version='1.0',
       description='some helper utils',
-      url='https://pdfcrowd.com/doc/api/',
+      url='https://github.com/foxmadr/sharedutils',
       license='License :: OSI Approved :: MIT License',
       author='Pdfcrowd Team',
       author_email='support@pdfcrowd.com',
