@@ -1,0 +1,11 @@
+*~
+.*~
+\#*\#
+.\#*
+*.pyc
+
+MANIFEST
+build/
+dist/
+test_files
+sharedutils.egg-info/
