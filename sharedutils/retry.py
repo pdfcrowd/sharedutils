@@ -2,7 +2,7 @@ import datetime
 import django_rq
 from functools import wraps
 from rq import get_current_job
-from config import logger
+import config
 
 RQ_RETRY_DEFAULT_BACKOFF = 60*60
 
@@ -34,7 +34,7 @@ def retry_job_if_fails(job_fn, job_kwds):
     except JobFailedTryAgainError:
         job_fn.delay(**job_kwds)
     except Exception:
-        logger.error('Job failed: %s', str(job_fn), exc_info=True)
+        config.logger.error('Job failed: %s', str(job_fn), exc_info=True)
         job_fn.delay(**job_kwds)
 
 # rq exception handler that retries a failed job with exponential backoff
@@ -60,18 +60,18 @@ def rq_retry_handler(job, *exc_info):
         return True
     delay = 1 + (2**retries)
     if delay > job.meta.get('max_backoff', RQ_RETRY_DEFAULT_BACKOFF):
-        logger.error('Retrying %s failed', job.id, exc_info=exc_info)
+        config.logger.error('Retrying %s failed', job.id, exc_info=exc_info)
         return True
     kwargs = dict(job.kwargs)
     kwargs['timeout'] = job.timeout
     kwargs['job_id'] = job.id
     kwargs['job_ttl'] = job.ttl
     kwargs['job_result_ttl'] = job.result_ttl
-    logger.debug('meta %s', job.meta)
-    logger.debug('job.kwargs %s', job.kwargs)
-    logger.debug('scheduler.kwargs %s', kwargs)
-    logger.warning("Scheduling %s in %d seconds, this is retry nr %d",
-                   job.id, delay, retries+1)
+    config.logger.debug('meta %s', job.meta)
+    config.logger.debug('job.kwargs %s', job.kwargs)
+    config.logger.debug('scheduler.kwargs %s', kwargs)
+    config.logger.warning("Scheduling %s in %d seconds, this is retry nr %d",
+                          job.id, delay, retries+1)
     scheduler = django_rq.get_scheduler(job.origin)
     scheduler.enqueue_in(datetime.timedelta(seconds=delay),
                          job.func, *job.args, **kwargs)

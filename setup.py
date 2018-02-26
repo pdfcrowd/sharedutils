@@ -26,7 +26,7 @@
 from setuptools import setup
 
 setup(name='sharedutils',
-      version='1.0',
+      version='1.1',
       description='some helper utils',
       url='https://github.com/foxmadr/sharedutils',
       license='License :: OSI Approved :: MIT License',
