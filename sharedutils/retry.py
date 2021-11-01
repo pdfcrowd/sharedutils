@@ -6,6 +6,7 @@ import datetime
 import django_rq
 from functools import wraps
 from rq import get_current_job
+import rq
 from . import config
 
 RQ_RETRY_DEFAULT_BACKOFF = 60*60
@@ -32,19 +33,28 @@ def rq_retry(max_backoff=RQ_RETRY_DEFAULT_BACKOFF):  # 1 hour default backoff
 # asynchronously; if job_fn is decorated with rq_retry, it is retried multiple
 # time with the specified exponencial back-off limit
 def retry_job_if_fails(job_fn, job_kwds):
+    rv = { 'is_success': True }
     try:
         job_fn(**job_kwds)
-        return True
     except JobFailedTryAgainError:
-        job_fn.delay(**job_kwds)
+        rv['job'] = job_fn.delay(**job_kwds)
+        rv['is_success'] = False
     except Exception:
+        rv['job'] = job_fn.delay(**job_kwds)
+        rv['is_success'] = False
         config.logger.error('Job failed: %s', str(job_fn), exc_info=True)
-        job_fn.delay(**job_kwds)
+    return rv
+
 
 # rq exception handler that retries a failed job with exponential backoff
 #
 # total time in seconds is 2**(retries+1)
 # #retries   time before give up
+#    0      1   second   1
+#    1      4   seconds  3
+#    2      10  seconds  5
+#    3      19  seconds  9
+#    4      36  seconds  17
 #    5      1   minute
 #    6      2.1 minutes
 #    7      4.3 minutes
@@ -84,9 +94,19 @@ def rq_retry_handler(job, *exc_info):
     job.save_meta()
     return False
 
+# rq>=1.0
+def put_to_failed_job_registry(job, *exc_info):
+    import traceback
+    exc_string = traceback.format_exception(*exc_info)
+    queue = django_rq.get_queue(job.origin)
+    queue.failed_job_registry.add(job, exc_string=exc_string)
+    return False
+
+# rq<1.0
 def put_to_failed_queue(job, *exc_info):
     import traceback
     l = traceback.format_exception(*exc_info)
     fq = django_rq.queues.get_failed_queue()
     fq.quarantine(job, "".join(l))
     return False
+
